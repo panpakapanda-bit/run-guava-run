@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>画像ゲーム完成版</title>
+<style>
+  body { margin:0; background:black; }
+  canvas { display:block; margin:auto; background:#111; }
+</style>
+</head>
+<body>
+
+<canvas id="game" width="500" height="500"></canvas>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+// ===== 画像 =====
+const playerImg = new Image();
+playerImg.src = "images/player.png";
+
+const enemyImg = new Image();
+enemyImg.src = "images/enemy.png";
+
+const foodImg = new Image();
+foodImg.src = "images/food.png";
+
+let loaded = 0;
+[playerImg, enemyImg, foodImg].forEach(img => {
+  img.onload = () => {
+    loaded++;
+    if (loaded === 3) start();
+  };
+});
+
+// ===== 状態 =====
+let state = "start";
+
+// ===== プレイヤー =====
+const player = {
+  x: 250,
+  y: 250,
+  size: 40,
+  speed: 4
+};
+
+// ===== 入力 =====
+const keys = {};
+document.addEventListener("keydown", e => {
+  keys[e.code] = true;
+
+  if (state === "start" && e.code === "Space") {
+    startGame();
+  }
+
+  if (state === "gameover" && e.code === "KeyR") {
+    location.reload();
+  }
+});
+document.addEventListener("keyup", e => keys[e.code] = false);
+
+// ===== データ =====
+let foods = [];
+let enemies = [];
+let score = 0;
+let stage = 1;
+
+// ===== 食べ物 =====
+function spawnFoods() {
+  foods = [];
+  for (let i = 0; i < 10; i++) {
+    foods.push({
+      x: Math.random() * (canvas.width - 30),
+      y: Math.random() * (canvas.height - 30),
+      size: 30,
+      vx: (Math.random() - 0.5),
+      vy: (Math.random() - 0.5)
+    });
+  }
+}
+
+// ===== 敵 =====
+function spawnEnemies() {
+  enemies = [];
+  for (let i = 0; i < stage + 1; i++) {
+    enemies.push({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      size: 40,
+      vx: (Math.random() * 4 - 2),
+      vy: (Math.random() * 4 - 2)
+    });
+  }
+}
+
+// ===== 開始 =====
+function start() {
+  loop();
+}
+
+function startGame() {
+  state = "playing";
+  spawnFoods();
+  spawnEnemies();
+}
+
+// ===== 当たり判定 =====
+function hit(a, b) {
+  return (
+    a.x < b.x + b.size &&
+    a.x + a.size > b.x &&
+    a.y < b.y + b.size &&
+    a.y + a.size > b.y
+  );
+}
+
+// ===== 更新 =====
+function update() {
+  if (state !== "playing") return;
+
+  if (keys["ArrowUp"]) player.y -= player.speed;
+  if (keys["ArrowDown"]) player.y += player.speed;
+  if (keys["ArrowLeft"]) player.x -= player.speed;
+  if (keys["ArrowRight"]) player.x += player.speed;
+
+  player.x = Math.max(0, Math.min(canvas.width - player.size, player.x));
+  player.y = Math.max(0, Math.min(canvas.height - player.size, player.y));
+
+  // 食べ物
+  foods.forEach(f => {
+    f.x += f.vx;
+    f.y += f.vy;
+
+    if (f.x <= 0 || f.x + f.size >= canvas.width) f.vx *= -1;
+    if (f.y <= 0 || f.y + f.size >= canvas.height) f.vy *= -1;
+  });
+
+  // 敵
+  enemies.forEach(e => {
+    e.x += e.vx;
+    e.y += e.vy;
+
+    if (e.x <= 0 || e.x + e.size >= canvas.width) e.vx *= -1;
+    if (e.y <= 0 || e.y + e.size >= canvas.height) e.vy *= -1;
+
+    if (hit(player, e)) {
+      state = "gameover";
+    }
+  });
+
+  // 食べる
+  foods.forEach((f, i) => {
+    if (hit(player, f)) {
+      score++;
+      foods.splice(i, 1);
+    }
+  });
+
+  // クリア
+  if (foods.length === 0) {
+    state = "clear";
+
+    setTimeout(() => {
+      stage++;
+      spawnFoods();
+      spawnEnemies();
+      state = "playing";
+    }, 2000);
+  }
+}
+
+// ===== 描画 =====
+function draw() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  if (state === "start") {
+    ctx.fillStyle = "white";
+    ctx.font = "30px sans-serif";
+    ctx.fillText("SPACEでスタート", 130, 250);
+    return;
+  }
+
+  // プレイヤー
+  ctx.drawImage(playerImg, player.x, player.y, player.size, player.size);
+
+  // 食べ物
+  foods.forEach(f => {
+    ctx.drawImage(foodImg, f.x, f.y, f.size, f.size);
+  });
+
+  // 敵
+  enemies.forEach(e => {
+    ctx.drawImage(enemyImg, e.x, e.y, e.size, e.size);
+  });
+
+  // UI
+  ctx.fillStyle = "white";
+  ctx.font = "16px sans-serif";
+  ctx.fillText(`ステージ: ${stage}`, 10, 20);
+  ctx.fillText(`スコア: ${score}`, 10, 40);
+
+  // CLEAR
+  if (state === "clear") {
+    ctx.fillStyle = "rgba(0,0,0,0.5)";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    ctx.fillStyle = "yellow";
+    ctx.font = "40px sans-serif";
+    ctx.fillText("CLEAR!", 170, 250);
+  }
+
+  // GAME OVER
+  if (state === "gameover") {
+    ctx.fillStyle = "rgba(0,0,0,0.7)";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    ctx.fillStyle = "red";
+    ctx.font = "40px sans-serif";
+    ctx.fillText("GAME OVER", 130, 240);
+
+    ctx.fillStyle = "white";
+    ctx.font = "18px sans-serif";
+    ctx.fillText("Rでリスタート", 170, 280);
+  }
+}
+
+// ===== ループ =====
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+</script>
+</body>
+</html>
