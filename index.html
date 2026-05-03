@@ -23,6 +23,12 @@ const ctx = canvas.getContext("2d");
 const playerImg = new Image();
 playerImg.src = "images/player.png";
 
+const playerEatImg = new Image();
+playerEatImg.src = "images/player_eat.png";
+
+const playerDamageImg = new Image();
+playerDamageImg.src = "images/player_damage.png";
+
 const enemyImg = new Image();
 enemyImg.src = "images/enemy.png";
 
@@ -158,7 +164,17 @@ function update() {
 
     if (hit(player, e)) {
       state = "gameover";
+
+      // やられた状態
+      player.state = "damage";
+      player.timer = 120;
+
     }
+// 2026.05.03 kokokara
+if (player.state === "damage" && player.timer % 6 < 3) {
+  return; // 描画しない → 点滅
+}
+// 2026.05.03 kokomade
   });
 
   // 食べる
@@ -166,7 +182,29 @@ function update() {
     if (hit(player, f)) {
       score++;
       foods.splice(i, 1);
+
+// 2026.05.03 kokokara
+
+      // 食べた状態
+      player.state = "eat";
+      player.timer = 90;
+ //    player.state = "normal";
+
+ //     spawnFood();
+// 2026.05.03 kokomade
+
     }
+// 2026.05.03 kokokara
+
+if (player.timer > 0) {
+  player.timer--;
+
+  if (player.timer === 0) {
+    player.state = "normal";
+  }
+}
+// 2026.05.03 kokomade
+
   });
 
   // クリア
@@ -194,7 +232,15 @@ function draw() {
   }
 
   // プレイヤー
-  ctx.drawImage(playerImg, player.x, player.y, player.size, player.size);
+//  ctx.drawImage(playerImg, player.x, player.y, player.size, player.size);
+  // プレイヤー画像切替
+  let img = playerImg;
+  if (player.state === "normal") img = playerImg;
+ if (player.state === "eat") img = playerEatImg;
+  if (player.state === "damage") img = playerDamageImg;
+
+  ctx.drawImage(img, player.x, player.y, player.size, player.size);
+
 
   // 食べ物
   foods.forEach(f => {
